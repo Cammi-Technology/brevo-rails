@@ -101,6 +101,50 @@ RSpec.describe BrevoRails::Mail do
         expect(subject.tags).to eq(['tag1', 'tag2'])
       end
     end
+
+    context 'with template delivery_method_options' do
+      let(:message) do
+        Mail.new do
+          from    'Tester <test@example.com>'
+          to      'you@example.com'
+          subject 'Should be ignored by Brevo'
+        end
+      end
+
+      before do
+        # Simulate ActionMailer injecting delivery_method_options
+        def message.delivery_method_options
+          {
+            template_id: 12345,
+            template_params: {
+              first_name: 'Rachel',
+              verification_link: 'https://cammi.app/confirm?token=abc'
+            }
+          }
+        end
+
+        message.text_part = Mail::Part.new { body 'Text fallback' }
+        message.html_part = Mail::Part.new { content_type 'text/html'; body '<p>Hello</p>' }
+      end
+
+      subject(:smtp_payload) { described_class.from_message(message) }
+
+      it 'sets the template ID' do
+        expect(smtp_payload.template_id).to eq(12345)
+      end
+
+      it 'sets the template params' do
+        expect(smtp_payload.params).to eq({
+          'first_name' => 'Rachel',
+          'verification_link' => 'https://cammi.app/confirm?token=abc'
+        })
+      end
+
+      it 'omits htmlContent and textContent' do
+        expect(smtp_payload.html_content).to be_nil
+        expect(smtp_payload.text_content).to be_nil
+      end
+    end
   end
 
 end

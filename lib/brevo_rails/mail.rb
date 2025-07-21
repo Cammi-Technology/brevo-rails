@@ -17,6 +17,13 @@ module BrevoRails
           headers: prepare_headers(message),
         }.stringify_keys
 
+        params.merge!(prepare_template(message))
+
+        if params['templateId']
+          params.delete('htmlContent')
+          params.delete('textContent')
+        end
+
         params['cc'] = prepare_cc(address_list(message['cc'])&.addresses) if message['cc']
         params['bcc'] = prepare_bcc(address_list(message['bcc'])&.addresses) if message['bcc']
         params['attachment'] = prepare_attachments(message.attachments) if message.attachments.any?
@@ -34,6 +41,23 @@ module BrevoRails
           bcc
           subject
         ].freeze
+
+        def prepare_template(message)
+          return {} unless message.respond_to?(:delivery_method_options)
+
+          options = message.delivery_method_options || {}
+
+          template = {}
+          if options[:template_id]
+            template['templateId'] = options[:template_id]
+          end
+
+          if options[:template_params]
+            template['params'] = options[:template_params].stringify_keys
+          end
+
+          template
+        end
 
         def prepare_headers(message)
           message
